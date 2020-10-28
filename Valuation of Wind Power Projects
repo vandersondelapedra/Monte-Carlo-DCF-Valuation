@@ -1,0 +1,291 @@
+
+import matplotlib.pyplot
+import numpy
+import numpy_financial
+import scipy
+from scipy.stats import lognorm
+import pylab as pl
+
+
+#lendo o arquivo csv
+arquivo = open('ROA.csv')
+
+#quebrando em linhas e ignorando a primeira que contém apenas o cabeçalho
+lista_linhas = arquivo.readlines()[1 : ]
+arquivo.close()
+
+#criando a lista com todos os valores da coluna do total_mwh
+lista_totais_mwh = []
+for linha in lista_linhas:
+    celulas = linha.split(';')
+    lista_totais_mwh.append(float(celulas[8]))
+# print(lista_totais_mwh)
+# print()
+
+#criando a lista com todos os valores da coluna do bid_price
+lista_bid_prices = []
+for linha in lista_linhas:
+    celulas = linha.split(';')
+    lista_bid_prices.append(float(celulas[10]))
+# print(lista_bid_prices)
+# print()
+
+#criando a lista com todos os valores da coluna Percentual
+lista_percentuais = []
+for linha in lista_linhas:
+    celulas = linha.split(';')
+    lista_percentuais.append(float(celulas[6]))
+# print(lista_percentuais)
+# print()
+
+#Criando a lista com todos os valores da coluna POWER 
+lista_potencia = []
+for linha in lista_linhas:
+    celulas = linha.split(';')
+    lista_potencia.append(float(celulas[4]))
+
+#criando a lista com o resultado das multiplicações do total_mwh pelo bid_price
+lista_receita_regulado = []
+for i in range(len(lista_linhas)): lista_receita_regulado.append((lista_totais_mwh[i] / 175320 * 8766) * lista_bid_prices[i])
+#print(lista_receita_regulado)
+# print()
+
+#encontrando os grupos dos leilões baseado nos valores
+#primeiro criamos a lista com todos os auctions
+lista_auctions = []
+for linha in lista_linhas:
+    celulas = linha.split(';')
+    lista_auctions.append(int(celulas[1]))
+
+#depois criamos o dicionario associando os auctions com quantas vezes eles se repetem
+dicionario_auctions_qtdds = dict()
+for auction in lista_auctions:
+    dicionario_auctions_qtdds[auction] = lista_auctions.count(auction)
+# print(dicionario_auctions_qtdds)
+# print()
+
+#agora vamos calcular as medias da soma dos resultados pelo número de auctions
+#primeiro criamos um dicionário com os valores dos auctions e associamos a 0.0
+dicionario_medias_auctions = dict()
+for auction in dicionario_auctions_qtdds: dicionario_medias_auctions[auction] = 0.0
+
+#agora vamos lendo linha por linha fazendo a soma e colocando no auction respectivo
+for i in range(len(lista_linhas)):
+    numero_auction = lista_auctions[i]
+    qtdd_auction = dicionario_auctions_qtdds[numero_auction]
+    #já somamos o resultado dividido pela qtdd do auction correspondente
+    dicionario_medias_auctions[numero_auction] += lista_receita_regulado[i] / qtdd_auction
+# print(dicionario_medias_auctions)
+# print()
+
+#agora vamos calcular as medias da soma dos bid_price pelo número de auctions
+dicionario_medias_bids = dict()
+for auction in dicionario_auctions_qtdds: dicionario_medias_bids[auction] = 0.0
+for i in range(len(lista_linhas)):
+    numero_auction = lista_auctions[i]
+    qtdd_auction = dicionario_auctions_qtdds[numero_auction]
+    #já somamos o resultado dividido pela qtdd do auction correspondente
+    dicionario_medias_bids[numero_auction] += lista_bid_prices[i] / qtdd_auction
+# print(dicionario_medias_bids)
+# print()
+
+##Define as médias de preços licitados por leilão
+prec_reg_28 = (dicionario_medias_bids[28])
+prec_reg_29 = (dicionario_medias_bids[29])
+prec_reg_30 = (dicionario_medias_bids[30])
+
+# print (prec_reg_28)
+
+prec_liv_28 = [40.16, 505.18, 272.670, 273.904166666667]
+prec_liv_29 = [42.35, 513.88, 278.115, 166.731666666667]
+prec_liv_30 = [42.35,513.88, 278.115, 166.731666666667]
+
+##Qtdd médias por Leilões 
+dicionario_medias_qtdd = dict()
+for auction in dicionario_auctions_qtdds: dicionario_medias_qtdd[auction] = 0.0
+for i in range(len(lista_linhas)):
+    numero_auction = lista_auctions[i]
+    qtdd_auction = dicionario_auctions_qtdds[numero_auction]
+    #já somamos o resultado dividido pela qtdd do auction correspondente
+    dicionario_medias_qtdd[numero_auction] += lista_totais_mwh[i] / qtdd_auction
+# print(dicionario_medias_qtdd)
+# print()
+
+lista_qtdd_livre = []
+for linha in lista_linhas:
+    celulas = linha.split(';')
+    lista_qtdd_livre.append(((float(celulas[8]) / 175320 * 8760) / float(celulas[6])) * (1 - float(celulas[6])))
+# print(lista_qtdd_livre)
+
+dicionario_medias_qtdd_livre = dict()
+for auction in dicionario_auctions_qtdds: dicionario_medias_qtdd_livre[auction] = 0.0
+for i in range(len(lista_linhas)):
+    numero_auction = lista_auctions[i]
+    qtdd_auction = dicionario_auctions_qtdds[numero_auction]
+    #já somamos o resultado dividido pela qtdd do auction correspondente
+    dicionario_medias_qtdd_livre[numero_auction] += lista_qtdd_livre[i] / qtdd_auction
+
+indice = int()
+escolha = input("MIN, MAX, MED_ANTES, MED_DEPOIS: ")
+if escolha == "MIN": indice = 0
+elif escolha == "MAX": indice = 1
+elif escolha == "MED_ANTES": indice = 2
+elif escolha == "MED_DEPOIS": indice = 3
+else:
+    print("Digitado Incorretamente")
+    exit()
+
+### Cria as variáveis de Qttd regulado
+qtdd_reg_28 = ((dicionario_medias_qtdd[28]) / 175320) * 8760
+qtdd_reg_29 = ((dicionario_medias_qtdd[29]) / 175320) * 8760
+qtdd_reg_30 = ((dicionario_medias_qtdd[30]) / 175320) * 8760
+
+# Cria as variáveis de Qtdd livre
+qtdd_liv_28 = (dicionario_medias_qtdd_livre[28]) 
+qtdd_liv_29 = (dicionario_medias_qtdd_livre[29]) 
+qtdd_liv_30 = (dicionario_medias_qtdd_livre[30]) 
+
+### Primeiro é criada uma lista de Receita individuais do regulado para calcular os impostos individuais mais tarde ###
+
+### Aqui cria as variáveis receitas 
+rec_28 = prec_reg_28 * qtdd_reg_28 + prec_liv_28[indice] * qtdd_liv_28
+rec_29 = prec_reg_29 * qtdd_reg_29 + prec_liv_29[indice] * qtdd_liv_29
+rec_30 = prec_reg_30 * qtdd_reg_30 + prec_liv_30[indice] * qtdd_liv_30
+
+##Despesas dos Projetos regulado
+
+## CRIA lista total de PIS PASEP REGULADO ###
+lista_pis_pasep = []
+for i in range(len(lista_linhas)): lista_pis_pasep.append(lista_receita_regulado[i] * 0.0165)
+#print (lista_pis_pasep)
+
+## CRIA dicionário PIS PASEP ###
+dicionario_medias_pis_pasep_regulado = dict()
+for auction in dicionario_auctions_qtdds: dicionario_medias_pis_pasep_regulado[auction] = 0.0
+for i in range(len(lista_linhas)):
+    numero_auction = lista_auctions[i]
+    qtdd_auction = dicionario_auctions_qtdds[numero_auction]
+    #já somamos o resultado dividido pela qtdd do auction correspondente
+    dicionario_medias_pis_pasep_regulado[numero_auction] += lista_pis_pasep[i] / qtdd_auction
+
+## cria as médias de PIS PASEP ###
+pis_pasep_reg_28 = (dicionario_medias_pis_pasep_regulado[28])
+pis_pasep_reg_29 = (dicionario_medias_pis_pasep_regulado[29])
+pis_pasep_reg_30 = (dicionario_medias_pis_pasep_regulado[30])
+
+
+## CRIA lista total de COFINS REGULADO ###
+lista_cofins_reg = []
+for i in range(len(lista_linhas)): lista_cofins_reg.append(lista_receita_regulado[i] * 0.076)
+
+## CRIA dicionário COFINS REGULADO ###
+dicionario_medias_cofins_regulado = dict()
+for auction in dicionario_auctions_qtdds: dicionario_medias_cofins_regulado[auction] = 0.0
+for i in range(len(lista_linhas)):
+    numero_auction = lista_auctions[i]
+    qtdd_auction = dicionario_auctions_qtdds[numero_auction]
+    #já somamos o resultado dividido pela qtdd do auction correspondente
+    dicionario_medias_cofins_regulado[numero_auction] += lista_cofins_reg[i] / qtdd_auction
+
+## cria as variáveis médias de COFINS ###
+cofins_reg_28 = (dicionario_medias_cofins_regulado[28])
+cofins_reg_29 = (dicionario_medias_cofins_regulado[29])
+cofins_reg_30 = (dicionario_medias_cofins_regulado[30])
+
+## CRIA lista total de OPEX REGULADO ###
+lista_opex_reg = []
+for i in range(len(lista_linhas)): lista_opex_reg.append(lista_receita_regulado[i] * 0.125)
+
+## CRIA dicionário OPEX REGULADO ###
+dicionario_medias_opex_regulado = dict()
+for auction in dicionario_auctions_qtdds: dicionario_medias_opex_regulado[auction] = 0.0
+for i in range(len(lista_linhas)):
+    numero_auction = lista_auctions[i]
+    qtdd_auction = dicionario_auctions_qtdds[numero_auction]
+    #já somamos o resultado dividido pela qtdd do auction correspondente
+    dicionario_medias_opex_regulado[numero_auction] += lista_opex_reg[i] / qtdd_auction
+
+## cria as variáveis médias de OPEX REGULADO ###
+opex_reg_28 = (dicionario_medias_opex_regulado[28])
+opex_reg_29 = (dicionario_medias_opex_regulado[29])
+opex_reg_30 = (dicionario_medias_opex_regulado[30])
+
+#CRIA A LISTA DE TUST (SÓ MERCADO REGULADO)
+lista_tust_reg = []
+for linha in lista_linhas:
+    celulas = linha.split(';')
+    lista_tust_reg.append(float(celulas[14]))
+
+## CRIA dicionário TUSTP ###
+dicionario_medias_tust_regulado = dict()
+for auction in dicionario_auctions_qtdds: dicionario_medias_tust_regulado[auction] = 0.0
+for i in range(len(lista_linhas)):
+    numero_auction = lista_auctions[i]
+    qtdd_auction = dicionario_auctions_qtdds[numero_auction]
+    #já somamos o resultado dividido pela qtdd do auction correspondente
+    dicionario_medias_tust_regulado[numero_auction] += lista_tust_reg[i] / qtdd_auction
+
+## cria as variáveis médias de TUST REGULADO ###
+tust_reg_28 = (dicionario_medias_tust_regulado[28])
+tust_reg_29 = (dicionario_medias_tust_regulado[29])
+tust_reg_30 = (dicionario_medias_tust_regulado[30])
+
+## cria as variáveis médias de CCEE e ONS REGULADO ###
+lista_fee_ccee_ons = []
+for i in range (len(lista_linhas)): lista_fee_ccee_ons.append(lista_receita_regulado[i] * 0.01)
+
+## CRIA dicionário da tarifa CCEE e ONS REGULADO ###
+dicionario_fee_ccee_ons = dict()
+for auction in dicionario_auctions_qtdds: dicionario_fee_ccee_ons[auction] = 0.0
+for i in range(len(lista_linhas)):
+    numero_auction = lista_auctions[i]
+    qtdd_auction = dicionario_auctions_qtdds[numero_auction]
+    dicionario_fee_ccee_ons [numero_auction] += lista_fee_ccee_ons[i] / qtdd_auction
+
+# Cria variável tarifas CCEE e ONS
+fee_ccee_ons_28 = (dicionario_fee_ccee_ons[28])
+fee_ccee_ons_29 = (dicionario_fee_ccee_ons[29])
+fee_ccee_ons_30 = (dicionario_fee_ccee_ons[30])
+
+# Cia a lista da tarifa ANEEL
+lista_tarifa_aneel = []
+for i in range (len(lista_linhas)): lista_tarifa_aneel.append(lista_potencia[i] * 3073.08)
+
+# Cia O dicionário tarifa Aneel
+dicionario_tarifa_aneel = dict()
+for auction in dicionario_auctions_qtdds: dicionario_tarifa_aneel[auction] = 0.0
+for i in range(len(lista_linhas)):
+    numero_auction = lista_auctions[i]
+    qtdd_auction = dicionario_auctions_qtdds[numero_auction]
+    dicionario_tarifa_aneel [numero_auction] += lista_tarifa_aneel[i] / qtdd_auction
+
+#Cria as variáveis Tarifa ANEEL média por leilão
+tarifa_aneel_28 = (dicionario_tarifa_aneel[28])
+tarifa_aneel_29 = (dicionario_tarifa_aneel[29])
+tarifa_aneel_30 = (dicionario_tarifa_aneel[30])
+
+## cria a lisa do leasing ###
+lista_leasing = []
+for i in range (len(lista_linhas)): lista_leasing.append(lista_receita_regulado[i] * 0.01)
+
+## CRIA dicionário da tarifa leasing ###
+dicionario_leasing = dict()
+for auction in dicionario_auctions_qtdds: dicionario_leasing[auction] = 0.0
+for i in range(len(lista_linhas)):
+    numero_auction = lista_auctions[i]
+    qtdd_auction = dicionario_auctions_qtdds[numero_auction]
+    dicionario_leasing [numero_auction] += lista_leasing[i] / qtdd_auction
+
+# Cria variável tarifas CCEE e ONS
+leasing_28 = (dicionario_leasing[28])
+leasing_29 = (dicionario_leasing[29])
+leasing_30 = (dicionario_leasing[30])
+
+#Cria as variáveis despesas do mercado regulado
+
+desp_reg_28 = (pis_pasep_reg_28 + cofins_reg_28 + opex_reg_28 + tust_reg_28 + fee_ccee_ons_28 + tarifa_aneel_28 + leasing_28)
+desp_reg_29 = (pis_pasep_reg_29 + cofins_reg_29 + opex_reg_29 + tust_reg_29 + fee_ccee_ons_29 + tarifa_aneel_29 + leasing_29)
+desp_reg_30 = (pis_pasep_reg_30 + cofins_reg_30 + opex_reg_30 + tust_reg_30 + fee_ccee_ons_30 + tarifa_aneel_30 + leasing_30)
+
+#Cria as variáveis despesas do mercado ACL
+
